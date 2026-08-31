@@ -1,0 +1,13 @@
+{
+  "execution_id": "APA-2026-0142",
+  "etape": 1,
+  "etat": {
+    "texte_brut": "Monsieur, je me permets de vous contacter au sujet de mon père, M. Henri Marchand, né le 14 mars 1938, résidant à Lons-le-Saunier. Il a été victime d'un AVC en janvier dernier et nécessite désormais une aide quotidienne. Je souhaite déposer une demande d'APA à domicile. Cordialement, Marie Marchand.",
+    "categorie": "Demande d'aide médicale",
+    "urgence": "Moyenne",
+    "demandeur": "Marie Marchand",
+    "besoin_principal": null,
+    "service_cible": null,
+    "resume": null
+  }
+}
