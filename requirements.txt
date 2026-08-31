@@ -13,7 +13,7 @@
 # langchain-core>=1.4.7, qui casse ragas (utilisé par T1a et T4).
 # C'est cette contrainte qui fige langgraph et langchain-mistralai en pré-1.0.
 langchain-core==0.3.86
-langgraph==0.6.11
+langgraph==1.0.10rc1
 langchain-mistralai==0.2.12
 
 # ── Mistral ───────────────────────────────────────────────────────────────────
