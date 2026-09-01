@@ -2,28 +2,34 @@
 # Only needed so uv/pip recognizes it as a project
 name = "notebooks-to-explore"
 version = "0.0.0"
-description = "Notebooks de formation LangChain + Mistral AI"
-requires-python = ">=3.11,<3.14"
+description = "Notebooks de formation LangChain + Mistral AI (Jour 2 — Hands On L1/Atelier à L9)"
+# Jour 2 verrouille Python 3.13 (couvert par LangGraph 1.x). Le .venv racine (Jour 1)
+# reste en 3.12 et n'est jamais touché : chaque journée a son environnement.
+requires-python = ">=3.13,<3.14"
 
-# Dependencies you need in the notebooks
+# Dépendances réellement utilisées par les notebooks L1/Atelier -> L9.
 dependencies = [
-    "langgraph>=1.0.0",
-    "langchain>=1.3.10",
-    "langchain-core>=1.4.0",
-    "langchain-mistralai",
-    "python-dotenv",
-    "sqlalchemy>=2.0",
-    "jupyter>=1.0.0",
+    "langchain>=1.0",
+    "langchain-core>=1.0",
+    "langgraph>=1.0",
+    "langchain-mistralai>=1.0",
+    "langchain-mcp-adapters>=0.3",
     "langgraph-cli[inmem]>=0.4.0",
-    "langchain-mcp-adapters",
+    "sqlalchemy>=2.0",
+    "python-dotenv",
+    "packaging",
+    "pydantic>=2.0",
+    "jupyter>=1.0.0",
+    "ipykernel",
+    "nbclient",
+    "nbformat",
 ]
 
 [project.optional-dependencies]
-# Extra tools for development
+# Outils de développement / validation des notebooks.
 dev = [
     "nbdime>=4.0.2",
     "ruff>=0.6.1",
-    "mypy>=1.11.1"
 ]
 
 # CVE-2026-32597: PyJWT <=2.11.0 accepts unknown crit header extensions.
@@ -66,4 +72,3 @@ lint.ignore = [
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
