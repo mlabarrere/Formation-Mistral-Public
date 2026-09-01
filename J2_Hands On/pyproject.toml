@@ -43,6 +43,17 @@ constraint-dependencies = [
     "gitpython>=3.1.47",
 ]
 
+[tool.pyright]
+# Aide Pylance / pyright à comprendre les notebooks du cours :
+# - utilise l'interpréteur du .venv J2 pour résoudre langchain, mistralai, etc. ;
+# - cible Python 3.13 ;
+# - n'alerte pas sur les expressions nues, qui servent à AFFICHER une valeur en fin
+#   de cellule Jupyter (idiome volontaire, ex. `result` ou `msg.usage_metadata`).
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+reportUnusedExpression = "none"
+
 [tool.ruff]
 # What to check
 lint.select = [

@@ -1,37 +1,42 @@
 # 🧪 Jour 2 — LangChain Hands On avec Mistral AI
 
-Neuf notebooks guidés mènent d’un premier agent jusqu’à l’interaction humaine :
-trois **Ateliers d’introduction** (créer un agent, comprendre les messages, streamer
-les réponses) puis six **leçons** (tools, MCP, mémoire, sortie structurée, prompt
-dynamique, human-in-the-loop).
+Neuf ateliers guidés mènent d'un premier agent jusqu'à l'interaction humaine, en
+français et pas à pas. On y passe d'une simple fonction Python à un agent capable
+d'utiliser des outils, de mémoriser un fil, de structurer sa réponse, d'adapter son
+contexte et de demander une validation humaine.
 
-🎯 **Public** : adultes débutants en LangChain, déjà à l’aise avec les bases de
-Python. Chaque leçon est prévue pour **30 à 45 minutes**.
-
-Les exemples restent proches du
-[cours LangChain Essentials original](https://github.com/langchain-ai/lca-langchainV1-essentials/tree/main/python),
-mais ils utilisent Mistral AI et les APIs LangChain actuelles.
+🎯 **Public** : adultes débutants en LangChain, déjà à l'aise avec les bases de
+Python. Chaque atelier dure **30 à 45 minutes** et utilise Mistral AI via les APIs
+LangChain actuelles.
 
 ## 🗺️ Parcours
 
 | Notebook | Question à laquelle il répond |
 |---|---|
-| `Atelier1_fast_agent.ipynb` | Comment construire un premier agent (SQL) en quelques lignes ? |
-| `Atelier2_messages.ipynb` | Comment LangChain représente-t-il une conversation (messages) ? |
-| `Atelier3_streaming.ipynb` | Comment afficher une réponse au fil de l’eau (streaming) ? |
-| `L4_tools.ipynb` | Comment un modèle choisit-il puis appelle-t-il une fonction Python ? |
-| `L5_tools_with_mcp.ipynb` | Comment découvrir des tools fournis par un serveur MCP ? |
-| `L6_memory.ipynb` | Comment conserver l’état d’un même fil sans mélanger deux utilisateurs ? |
-| `L7_structuredOutput.ipynb` | Comment obtenir une réponse validée plutôt qu’un texte libre ? |
-| `L8_dynamic.ipynb` | Comment adapter le prompt au contexte de l’utilisateur ? |
-| `L9_HITL.ipynb` | Comment interrompre une action et attendre une décision humaine ? |
+| `Atelier 1 - Premier agent SQL.ipynb` | Comment construire un premier agent en quelques lignes ? |
+| `Atelier 2 - Messages.ipynb` | Comment LangChain représente-t-il une conversation ? |
+| `Atelier 3 - Streaming.ipynb` | Comment afficher une réponse au fil de l'eau ? |
+| `Atelier 4 - Tools.ipynb` | Comment un modèle choisit-il puis appelle-t-il une fonction Python ? |
+| `Atelier 5 - Tools MCP.ipynb` | Comment découvrir des outils fournis par un serveur MCP ? |
+| `Atelier 6 - Memoire.ipynb` | Comment conserver l'état d'un fil sans mélanger deux utilisateurs ? |
+| `Atelier 7 - Sortie structuree.ipynb` | Comment obtenir une réponse validée plutôt qu'un texte libre ? |
+| `Atelier 8 - Prompt dynamique.ipynb` | Comment adapter le prompt au contexte de l'utilisateur ? |
+| `Atelier 9 - Human-in-the-loop.ipynb` | Comment interrompre une action et attendre une décision humaine ? |
+
+## 📁 Structure du dossier
+
+- `data/` — la base de démonstration `Chinook.db` (SQLite, lecture seule).
+- `util/` — utilitaires importés par les notebooks (`env_utils.py`, `sql_db.py`).
+- `assets/` — images affichées dans les notebooks.
+- `studio/` — agent SQL prêt pour **LangGraph Studio** (débogueur visuel, bonus).
 
 ## 🛠️ Prérequis
 
 - [Git](https://git-scm.com/install/) ;
 - [uv](https://docs.astral.sh/uv/getting-started/installation/), qui fournit aussi
-  `uvx` pour L5 ;
-- une clé Mistral et l’URL du serveur compatible avec l’API Mistral ;
+  `uvx` (utilisé par l'Atelier 5) ;
+- une clé **Mistral** et l'URL du serveur compatible avec l'API Mistral ;
+- un compte **LangSmith** (gratuit) pour la traçabilité — voir plus bas ;
 - aucune installation Python manuelle : `uv` installe Python 3.13 si nécessaire.
 
 Le Jour 2 possède son propre environnement `J2_Hands On/.venv`. Il ne modifie pas
@@ -49,38 +54,50 @@ uv lock --check
 uv pip check --python ".venv\Scripts\python.exe"
 ```
 
-`uv.lock` fige également les dépendances transitives : deux participants obtiennent
-ainsi la même combinaison de bibliothèques. Après une première installation, ne
-relancez `uv lock --upgrade` que lorsque vous souhaitez volontairement mettre le
-cours à niveau.
+`uv.lock` fige aussi les dépendances transitives : deux participants obtiennent la
+même combinaison de bibliothèques.
 
-### 🔐 Variables d’environnement
+## 🔐 Variables d'environnement (dont LangSmith)
 
-Deux variables suffisent : `MISTRAL_API_KEY` et `MISTRAL_SERVER_URL`. Le moyen le
-plus simple, valable pour **les neuf notebooks**, est de les exporter dans le shell
-avant de lancer Jupyter (voir ci-dessous). Les trois Ateliers d’introduction chargent
-en plus, si présent, un fichier `.env` via `python-dotenv` ; les leçons L4–L9 lisent
-uniquement les variables du **processus courant**. Dans tous les cas, **aucune valeur
-secrète n’est affichée** et `.env` ne doit jamais être versionné.
+Copiez `example.env` vers `.env` et renseignez vos valeurs (le `.env` ne doit jamais
+être versionné) :
+
+```bash
+cp example.env .env
+```
+
+| Variable | Rôle |
+|---|---|
+| `MISTRAL_API_KEY` | **obligatoire** — clé d'accès au serveur Mistral. |
+| `MISTRAL_SERVER_URL` | **obligatoire** — URL du serveur Mistral (se termine par `/v1`). |
+| `LANGSMITH_API_KEY` | traçabilité LangSmith (voir ci-dessous). |
+| `LANGSMITH_TRACING` | `true` pour envoyer les traces à LangSmith. |
+| `LANGSMITH_PROJECT` | nom du projet où regrouper les traces. |
+
+Le moyen le plus simple, valable pour les neuf notebooks, est d'exporter ces
+variables dans le shell avant de lancer Jupyter. Les Ateliers 1 à 3 chargent en plus
+un `.env` s'il existe (via `python-dotenv`). Aucune valeur secrète n'est jamais
+affichée.
 
 PowerShell :
 
 ```powershell
-$env:MISTRAL_API_KEY = Read-Host -Prompt "Clé Mistral" -MaskInput
+$env:MISTRAL_API_KEY = Read-Host -Prompt "Cle Mistral" -MaskInput
 $env:MISTRAL_SERVER_URL = "https://votre-serveur.example/v1"
+$env:LANGSMITH_API_KEY = Read-Host -Prompt "Cle LangSmith" -MaskInput
+$env:LANGSMITH_TRACING = "true"
+$env:LANGSMITH_PROJECT = "formation-mistral-j2"
 ```
 
-Bash ou zsh :
+### 🔎 Créer un compte LangSmith
 
-```bash
-read -rsp "Clé Mistral : " MISTRAL_API_KEY && export MISTRAL_API_KEY
-export MISTRAL_SERVER_URL="https://votre-serveur.example/v1"
-```
+1. Créez un compte gratuit sur [smith.langchain.com](https://smith.langchain.com/).
+2. Générez une **API key** (menu *Settings → API Keys*).
+3. Renseignez `LANGSMITH_API_KEY`, mettez `LANGSMITH_TRACING=true`, puis relancez le
+   kernel. Vos exécutions apparaissent dans le projet `LANGSMITH_PROJECT` : vous y
+   voyez chaque appel d'outil, chaque message et le détail des tokens.
 
-LangSmith est facultatif. Les noms de variables optionnelles figurent dans
-`example.env`, sans secret réel.
-
-### ▶️ Lancer Jupyter
+## ▶️ Lancer Jupyter
 
 Depuis `J2_Hands On` :
 
@@ -88,13 +105,32 @@ Depuis `J2_Hands On` :
 uv run jupyter lab
 ```
 
-Lancé ainsi depuis ce dossier, le kernel **Python 3 (J2 Hands On)** par défaut est
-déjà celui du `.venv` J2 (Python 3.13) : les notebooks s’ouvrent prêts à l’emploi.
+Lancé ainsi, le kernel **Python 3 (J2 Hands On)** par défaut est déjà celui du
+`.venv` J2 (Python 3.13) : les notebooks s'ouvrent prêts à l'emploi.
+
+## 🎛️ LangGraph Studio en local (bonus)
+
+Le dossier `studio/` contient un agent SQL prêt pour **LangGraph Studio**, un
+débogueur visuel qui affiche le graphe de l'agent et chaque étape de raisonnement.
+
+Depuis `J2_Hands On` :
+
+```powershell
+# 1) Fournir les variables au studio (créez studio/.env avec vos clés)
+Copy-Item .env studio\.env   # si vous utilisez un fichier .env
+
+# 2) Lancer le serveur de dev (langgraph-cli est déjà installé)
+cd studio
+uv run --project .. langgraph dev
+```
+
+Une page s'ouvre dans le navigateur : choisissez le graphe `agent2`, posez une
+question sur la base musicale, et observez l'agent décider puis interroger la base.
 
 ## 🧾 Environnement testé
 
-Les versions ci-dessous sont celles réellement résolues dans `uv.lock` le
-1er septembre 2026. Le lock reste la source de vérité.
+Versions réellement résolues dans `uv.lock` le 1er septembre 2026. Le lock reste la
+source de vérité.
 
 | Composant direct | Version résolue |
 |---|---:|
@@ -116,38 +152,36 @@ Les versions ci-dessous sont celles réellement résolues dans `uv.lock` le
 | `ruff` *(développement)* | 0.16.5 |
 | `nbdime` *(développement)* | 4.0.4 |
 
-L5 lance séparément `mcp-server-time==2026.8.18` avec `uvx`. Cette version déclare
-la contrainte `mcp>=1.29.0,<2` ; voir la
-[page PyPI officielle de mcp-server-time](https://pypi.org/project/mcp-server-time/).
+L'Atelier 5 lance séparément `mcp-server-time==2026.8.18` avec `uvx`. Cette version
+déclare la contrainte `mcp>=1.29.0,<2` ; voir la
+[page PyPI de mcp-server-time](https://pypi.org/project/mcp-server-time/).
 
 ## 🧪 Vérifications utiles
 
 Vérifier les imports directs sans lancer un notebook :
 
 ```powershell
-uv run --frozen python -c "import langchain, langchain_core, langgraph, langchain_mistralai, langchain_mcp_adapters, sqlalchemy, dotenv, packaging, pydantic, jupyter, ipykernel, nbclient, nbformat; print('✅ Imports J2 OK')"
+uv run --frozen python -c "import langchain, langchain_core, langgraph, langchain_mistralai, langchain_mcp_adapters, sqlalchemy, dotenv, packaging, pydantic, jupyter, ipykernel, nbclient, nbformat; print('Imports J2 OK')"
 ```
 
-Vérifier l’interpréteur réellement utilisé :
+Vérifier l'interpréteur réellement utilisé (doit finir par `J2_Hands On\.venv\Scripts\python.exe`) :
 
 ```powershell
-uv run --frozen python -c "import sys; print(sys.executable); print(sys.version)"
+uv run --frozen python -c "import sys; print(sys.executable)"
 ```
-
-Le chemin affiché doit se terminer par `J2_Hands On\.venv\Scripts\python.exe` sous
-Windows.
 
 ## ⚙️ Particularité MCP sous Windows
 
-Le notebook L5 vérifie d’abord que `uvx` est disponible. Il lance ensuite le serveur
-time par le transport `stdio`. Un message actionnable remplace une erreur obscure si
-`uvx` manque. Aucun contournement MCP supplémentaire n’est nécessaire tant que le
-serveur déclare correctement sa contrainte SDK.
+L'Atelier 5 vérifie d'abord que `uvx` est disponible, puis lance le serveur time par
+le transport `stdio`. Un message clair remplace une erreur obscure si `uvx` manque.
+Aucun contournement MCP supplémentaire n'est nécessaire.
 
 ## 📚 Documentation officielle
 
 - [Agents LangChain](https://docs.langchain.com/oss/python/langchain/agents)
 - [Tools LangChain](https://docs.langchain.com/oss/python/langchain/tools)
+- [Messages](https://docs.langchain.com/oss/python/langchain/messages)
+- [Streaming](https://docs.langchain.com/oss/python/langchain/streaming)
 - [Model Context Protocol](https://docs.langchain.com/oss/python/langchain/mcp)
 - [Mémoire à court terme](https://docs.langchain.com/oss/python/langchain/short-term-memory)
 - [Sortie structurée](https://docs.langchain.com/oss/python/langchain/structured-output)
@@ -156,6 +190,4 @@ serveur déclare correctement sa contrainte SDK.
 - [Human-in-the-loop](https://docs.langchain.com/oss/python/langchain/human-in-the-loop)
 - [Intégration ChatMistralAI](https://docs.langchain.com/oss/python/integrations/chat/mistralai)
 - [Function calling Mistral](https://docs.mistral.ai/studio/conversations/function-calling)
-
-Le fichier `PROMPT_MAITRE_J2.md` décrit l’orchestration multi-agents utilisée pour
-maintenir ou reproduire cette version du cours. 🧭
+- [LangGraph Studio](https://docs.langchain.com/oss/python/langchain/studio)
