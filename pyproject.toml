@@ -6,43 +6,87 @@ build-backend = "hatchling.build"
 name = "formation-mistral"
 version = "0.1.0"
 description = "Environnement Python de la formation Mistral CD39"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
-    # ── Contrainte structurante ───────────────────────────────────────────────
-    # langchain-core DOIT rester en 0.3.x : les lignes 1.x exigent
-    # langchain-core>=1.4.7, qui casse ragas (utilisé par T1a et T4).
-    "langchain-core==0.3.86",
-    "langgraph==0.6.11",
-    "langchain-mistralai==0.2.12",
+    # ── LangChain / LangGraph ecosystem ─────────────────────────────────────────
+    "langchain>=1.0",
+    "langchain-core>=1.0",
+    "langchain-community>=0.3",
+    "langchain-mistralai>=1.0",
+    "langgraph>=1.0",
+    "langchain-mcp-adapters>=0.3",
+    "langgraph-cli[inmem]>=0.4.0",
 
-    # ── Mistral ───────────────────────────────────────────────────────────────
-    "mistralai==2.9.4",
-    "mistralai-workflows==3.11.0",
+    # ── Mistral ──────────────────────────────────────────────────────────────────
+    "mistralai>=2.0",
+    "mistralai-workflows>=3.0",
 
-    # ── Évaluation (T1a, T4) ─────────────────────────────────────────────────
-    "litellm==1.98.0",
-    "instructor==1.16.0",
+    # ── Évaluation (J1 T1a, T4) ──────────────────────────────────────────────────
+    "ragas>=0.4",
+    "litellm>=1.0",
+    "instructor>=1.0",
 
-    # ── Domaine et visualisation ──────────────────────────────────────────────
-    "gpxpy==1.6.2",
-    "networkx==3.6.1",
-    "matplotlib==3.11.1",
-    "pandas==3.0.5",
-    "requests==2.34.2",
-    "pydantic==2.13.5",
+    # ── LlamaIndex (J1) ──────────────────────────────────────────────────────────
+    "llama-index-core",
+    "llama-index-llms-mistralai",
 
-    # ── Exécution des notebooks ───────────────────────────────────────────────
-    "ipykernel==7.3.0",
-    "nbclient==0.11.0",
-    "nbformat==5.11.1",
+    # ── Domaine et visualisation ─────────────────────────────────────────────────
+    "gpxpy>=1.0",
+    "networkx>=3.0",
+    "matplotlib>=3.0",
+    "pandas>=2.0",
+    "requests>=2.0",
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+    "fastmcp",
+
+    # ── Utilitaires ──────────────────────────────────────────────────────────────
+    "python-dotenv",
+    "packaging",
+
+    # ── Exécution des notebooks ──────────────────────────────────────────────────
+    "jupyter>=1.0",
+    "ipykernel",
+    "nbclient",
+    "nbformat",
 ]
 
 [tool.hatch.build.targets.wheel]
-# Pas de code source à packager : le projet est un environnement de formation.
-# On exclut tout sauf les notebooks et les assets.
 include = [
     "J0_Prerequisites/**",
     "J1_Fondations/**",
     "J2_Hands On/**",
     "README.md",
 ]
+
+[tool.uv]
+# CVE-2026-32597: PyJWT <=2.11.0 accepts unknown crit header extensions.
+# CVE-2026-4539: Pygments <2.20.0 has ReDoS via GUID matching regex.
+# GHSA-rpm5-65cw-6hj4: GitPython <3.1.47 command injection via Git options bypass.
+constraint-dependencies = [
+    "pyjwt>=2.12.0",
+    "pygments>=2.20.0",
+    "gitpython>=3.1.47",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+reportUnusedExpression = "none"
+
+[project.optional-dependencies]
+dev = [
+    "nbdime>=4.0.2",
+    "ruff>=0.6.1",
+]
+
+[tool.ruff]
+lint.select = ["E", "F", "I", "D", "D401", "UP"]
+lint.ignore = ["T201", "UP006", "UP007", "UP035", "D417", "E501", "D101", "D103", "D202"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D", "UP"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
