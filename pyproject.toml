@@ -43,6 +43,7 @@ dependencies = [
     "ipykernel",
     "nbclient",
     "nbformat",
+    "langgraph-checkpoint-sqlite>=3.1.1",
 ]
 
 [tool.hatch.build.targets.wheel]
