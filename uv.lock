@@ -1399,6 +1399,7 @@ name = "formation-mistral"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "beautifulsoup4" },
     { name = "datasets" },
     { name = "fastmcp" },
     { name = "gpxpy" },
@@ -1451,6 +1452,7 @@ finetuning = [
 [package.metadata]
 requires-dist = [
     { name = "accelerate", marker = "extra == 'finetuning'", specifier = ">=1.4" },
+    { name = "beautifulsoup4", specifier = ">=4.12" },
     { name = "datasets", specifier = ">=4.0" },
     { name = "fastmcp" },
     { name = "gpxpy", specifier = ">=1.0" },

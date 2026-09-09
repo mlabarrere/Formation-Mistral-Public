@@ -17,7 +17,7 @@ bibliographie. Le notebook, lui, ne contient que ce qu'on exécute.
 
 | Chapitre | Contenu | Tasks |
 |---|---|---|
-| **1 · Indexer** | chunking (512/64 → 700 car.), `mistral-embed`, cosinus calculé à la main en NumPy, puis Chroma. Encart **ChromaDB vs Qdrant** | 3 + encart |
+| **1 · Indexer** | chunking (512/64 → 2 000 car.), `mistral-embed`, cosinus calculé à la main en NumPy, puis Chroma. Encart **ChromaDB vs Qdrant** | 3 + encart |
 | **2 · Retrouver** | le `retriever` LangChain, BM25 pour les termes rares, fusion **RRF** (k=60) | 2 + exercice |
 | **3 · Générer** | chaîne LCEL `prompt \| llm \| parser`, ancrage et refus, puis **le mur** | 2 |
 | **4 · Traduire la question** | Multi-Query et HyDE : pourquoi ils ne suffisent pas | 1 |
@@ -32,14 +32,20 @@ RAG vectoriel y échoue de trois façons différentes :
 1. un **refus honnête** : le cas sain, détectable ;
 2. un **décompte faux** sans signal d'incertitude : sur une agrégation, le vectoriel répond
    sur ce qu'il a vu, jamais « je n'ai pas tout vu » ;
-3. une **recombinaison erronée de fragments authentiques** : le modèle attribue aux domaines
-   de Château-Chalon la liste des cépages autorisés par l'AOC Crémant du Jura, trouvée dans
-   une autre fiche. Chaque mot de la réponse est dans le contexte ; le lien entre eux est
-   inventé. C'est le vrai risque du RAG, pas l'invention pure.
+3. une **recombinaison erronée de fragments authentiques** : sept cahiers des charges
+   emploient un vocabulaire quasi identique, et le retrieval en ramène des morceaux venus
+   de plusieurs appellations. Chaque mot de la réponse est dans le contexte ; le lien entre
+   eux est inventé. C'est le vrai risque du RAG, pas l'invention pure.
 
-**Le tableau d'évaluation** (chapitre 6) : le graphe fait 3/3 sur le multi-sauts, mais **perd
-2 des 4 questions simples**. Le volume du clavelin et la durée d'élevage ne sont pas des
-relations du schéma : le graphe refuse proprement, alors que le corpus contenait la réponse.
+Le cas d'école du corpus : `marc-du-jura.html` est le **seul** document contenant à la fois
+« vin jaune » et la liste des six autres appellations — mais c'est pour en **interdire** la
+mention sur l'étiquette. C'est donc lui que le retrieval remonte en tête sur la question
+« combien d'appellations font du vin jaune », et il ne permet pas de répondre.
+
+**Le tableau d'évaluation** (chapitre 6) : le graphe gagne le multi-sauts et **perd des
+questions simples**, parce qu'un graphe ne contient que ce que son schéma prévoit. Le volume
+du clavelin (62 cl) est écrit noir sur blanc dans quatre cahiers et n'est dans aucune de nos
+six relations : le graphe refuse proprement une question dont le corpus avait la réponse.
 C'est l'argument central du réflexe « gardez les deux ».
 
 ---
@@ -50,7 +56,7 @@ C'est l'argument central du réflexe « gardez les deux ».
 |---|---|
 | `NB_T2a_rag_graphrag.ipynb` | Le notebook de cours |
 | `vins_jura.py` | Module partagé : corpus, 3 familles de questions, graphe de référence, `rrf`, `cosinus` |
-| `corpus_vins/` | 7 fiches markdown : le corpus indexé |
+| `corpus_vins/` | 7 cahiers des charges de l'INAO : HTML lu par le notebook, PDF fourni pour référence |
 | `_archive/` | Version précédente du thème (RAG LangChain seul), voir `_archive/NOTE.md` |
 
 ### `vins_jura.py` : API publique
@@ -73,37 +79,45 @@ Le module a un smoke test : `uv run python "J3_Avancé/T2_RAG/vins_jura.py"`.
 
 ## Le corpus
 
-Sept cuvées d'un petit vignoble jurassien. **Une fiche = une cuvée**, pas un domaine : un
-domaine qui produit deux cuvées est donc décrit dans deux fiches, et rien dans une fiche ne
-dit ce que contient l'autre. Cette fragmentation est délibérée : c'est elle qui rend les
-questions multi-sauts insolubles en RAG vectoriel. C'est aussi la situation normale d'un
-fonds documentaire réel.
+Les **sept cahiers des charges des AOC du Jura**, homologués par décret et publiés par
+l'INAO : Arbois, Château-Chalon, Côtes du Jura, Crémant du Jura, L'Étoile, Macvin du Jura,
+Marc du Jura. **229 925 caractères**, soit une vingtaine de chunks par document.
 
-Le graphe de référence compte **48 triplets, 35 entités et 7 relations** :
+Chaque texte est complet sur son appellation et **totalement muet sur les six autres** :
+aucun ne dit que l'appellation voisine autorise les mêmes cépages. Cette fragmentation n'a
+rien de construit pour l'exercice, c'est la forme normale d'un fonds réglementaire — et
+c'est elle qui rend les questions de comparaison insolubles en RAG vectoriel.
+
+Ces documents suivent tous le même plan en articles numérotés, ce qui rend l'extraction
+prévisible : chaque article alimente une relation et une seule.
 
 ```text
-Vigneron -[DIRIGE]->     Domaine
-Domaine  -[SIEGE_A]->    Commune        (siège social et caves du domaine)
-Domaine  -[PRODUIT]->    Cuvée
-Cuvée    -[VINIFIE_A]->  Commune        (commune où se trouve la parcelle)
-Cuvée    -[ISSU_DE]->    Cépage
-Cuvée    -[RELEVE_DE]->  Appellation
-Cuvée    -[EST_UN]->     TypeDeVin
+AOC -[PRODUIT_TYPE]->  TypeDeVin    (art. III : blanc tranquille, mousseux, eau-de-vie…)
+AOC -[ADMET_MENTION]-> Mention      (art. II  : vin jaune, vin de paille, vieux, très vieux)
+AOC -[AUTORISE]->      Cepage       (art. V   : cépages principaux)
+AOC -[RECOLTEE_SUR]->  Commune      (art. IV 1° a : aire de RÉCOLTE seulement)
+AOC -[RENDEMENT_MAX]-> Valeur       (art. VIII : rendement de base, en hl/ha)
+AOC -[ELEVAGE_MIN]->   Duree        (art. IX  : le sujet peut être une mention)
 ```
 
-**La distinction `SIEGE_A` / `VINIFIE_A` porte toute la difficulté** : le siège du Domaine de
-la Roche Percée est à Château-Chalon, mais la parcelle de son crémant est à Voiteur. Les
-confondre casse la première question multi-sauts.
+**L'article IV porte toute la difficulté** : il contient **deux** listes de communes, celles
+où la récolte a lieu (IV 1° a) et celles où la vinification et l'élevage peuvent *aussi*
+être assurés (IV 1° b). La seconde compte des dizaines de communes. Les confondre noie le
+graphe et rend l'aire de récolte inexploitable.
 
 Ambiguïté volontaire : « Château-Chalon » et « L'Étoile » sont à la fois des communes et des
 appellations. C'est le cas dans la réalité, et le typage des relations est ce qui lève
 l'ambiguïté.
 
-> **Note honnête.** Les domaines, vignerons, cuvées et lieux-dits sont **fictifs**. Les
-> appellations, cépages, communes et règles d'élevage (durée sous voile, clavelin de 62 cl,
-> méthode traditionnelle, minimum de neuf mois sur lattes) sont réels et vérifiables.
-> Inventer les producteurs évite d'attribuer à de vraies exploitations des caractéristiques
-> qu'elles n'ont pas. L'annexe du support GraphRAG documente précisément ce type d'erreur.
+> **Note honnête.** Le corpus est **entièrement réel et officiel** : ce sont les cahiers
+> des charges homologués par décret, textes publics et citables. Chaque réponse du système
+> est donc vérifiable à la ligne près, ce qui change tout pour un cours — un participant
+> peut ouvrir le document et contredire le notebook.
+>
+> Contrepartie : ces textes ne parlent **ni de producteurs ni de cuvées**, seulement
+> d'appellations. Le graphe modélise donc des règles, pas des acteurs. Et ils portent les
+> défauts de leur conversion PDF : « Menetru-leVignoble » sans trait d'union, « 5 000 »
+> avec une espace là où d'autres écrivent « 5000 ». Le chapitre 5 en fait son sujet.
 
 ---
 
@@ -144,9 +158,9 @@ l'ambiguïté.
 | **Index vectoriel** | Chroma en mémoire, reconstruit à chaque exécution | base persistante, réindexation incrémentale sur événement |
 | **Normalisation d'entités** | une fonction de 6 lignes | *entity resolution* : dictionnaire d'alias, sigles, seuils de fusion, revue humaine |
 | **Qualité du graphe** | précision/rappel mesurés une fois | test de non-régression à chaque réindexation, alerte sur dérive |
-| **Chunking** | 700 caractères pour tout | par type de document, en respectant titres et tableaux |
+| **Chunking** | 2 000 caractères pour tout | par type de document, en respectant titres et tableaux |
 | **Fraîcheur** | corpus figé | suppression et mise à jour propagées jusqu'au graphe |
-| **RGPD** | données fictives | pseudonymisation **avant** vectorisation, droit à l'effacement jusque dans l'index |
+| **RGPD** | textes réglementaires publics, aucune donnée personnelle | pseudonymisation **avant** vectorisation, droit à l'effacement jusque dans l'index |
 | **Habilitations** | aucune | filtre par périmètre appliqué **dans** la requête, jamais dans le prompt |
 | **Observabilité** | `print()` | traces LangSmith, journal des contextes servis, retour utilisateur |
 | **Évaluation** | 10 questions, exécution manuelle | plusieurs centaines de cas en CI, seuils bloquants |
@@ -214,7 +228,7 @@ Modèles utilisés, tous exposés par le serveur de formation : `mistral-medium-
 chat et le juge, `mistral-embed` (1 024 dimensions) pour les embeddings.
 
 > **Poids de l'installation.** Ce thème ajoute `langchain-chroma`, `langchain-qdrant`,
-> `rank-bm25` et `numpy` au `pyproject.toml`, soit **24 paquets** avec les dépendances
+> `rank-bm25`, `numpy` et `beautifulsoup4` au `pyproject.toml`, soit **25 paquets** avec les dépendances
 > transitives. `chromadb` tire à lui seul `onnxruntime`, `kubernetes` et `bcrypt` : comptez
 > ~100 Mo et quelques minutes de `uv sync`. À faire **avant** la session, pas pendant.
 

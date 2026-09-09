@@ -53,24 +53,68 @@ CORPUS_DIR: Path = Path(__file__).parent / "corpus_vins"
 # ─────────────────────────────────────────────────────────────────────────────
 # Chargement du corpus
 # ─────────────────────────────────────────────────────────────────────────────
+#: Extensions reconnues par :func:`charger_corpus`, dans l'ordre de priorité.
+#: Un même document livré en plusieurs formats (``arbois.html`` et ``arbois.pdf``)
+#: n'est chargé qu'une fois, via le premier format disponible de cette liste.
+EXTENSIONS = (".md", ".html", ".htm")
+
+
+def _texte_html(chemin: Path) -> tuple[str, str]:
+    """Extrait (titre, texte) d'un cahier des charges HTML.
+
+    Le balisage de navigation est retiré : ce qui reste est le texte réglementaire,
+    seul contenu utile à l'indexation.
+    """
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(chemin.read_text(encoding="utf-8", errors="replace"), "html.parser")
+    for balise in soup(["script", "style", "nav", "header", "footer"]):
+        balise.decompose()
+
+    titre = ""
+    if soup.title and soup.title.string:
+        titre = soup.title.string.strip()
+    elif soup.h1:
+        titre = soup.h1.get_text(" ", strip=True)
+
+    lignes, precedente = [], None
+    for ligne in soup.get_text("\n", strip=True).splitlines():
+        # Les exports INAO répètent le titre en en-tête de page : on déduplique
+        # les lignes consécutives identiques, sinon chaque chunk commence pareil.
+        if ligne and ligne != precedente:
+            lignes.append(ligne)
+        precedente = ligne
+    return titre or chemin.stem, "\n".join(lignes)
+
+
+def _texte_markdown(chemin: Path) -> tuple[str, str]:
+    """Extrait (titre, texte) d'une fiche markdown, le titre venant du premier ``# ...``."""
+    texte = chemin.read_text(encoding="utf-8")
+    premiere = texte.lstrip().splitlines()[0] if texte.strip() else ""
+    return premiere.lstrip("# ").strip() or chemin.stem, texte
+
+
 def charger_corpus(dossier: Path | str | None = None) -> list[dict]:
-    """Charge les fiches markdown du corpus, triées par nom de fichier.
+    """Charge le corpus, trié par nom de fichier.
+
+    Accepte le markdown et le HTML. Les cahiers des charges de l'INAO sont livrés en
+    HTML et en PDF ; seul le HTML est lu, le PDF étant la même chose en moins
+    exploitable. Un document présent dans deux formats n'est donc chargé qu'une fois.
 
     Parameters
     ----------
     dossier : Path or str or None
-        Dossier contenant les fiches ``.md``. Si ``None``, utilise ``CORPUS_DIR``.
+        Dossier contenant les documents. Si ``None``, utilise ``CORPUS_DIR``.
 
     Returns
     -------
     list of dict
-        Un dict par fiche : ``{"fichier", "titre", "texte"}``. ``titre`` est extrait
-        de la première ligne ``# ...`` du markdown.
+        Un dict par document : ``{"fichier", "titre", "texte"}``.
 
     Raises
     ------
     FileNotFoundError
-        Si le dossier est absent ou ne contient aucun fichier ``.md``.
+        Si le dossier est absent ou ne contient aucun document exploitable.
 
     Examples
     --------
@@ -82,15 +126,24 @@ def charger_corpus(dossier: Path | str | None = None) -> list[dict]:
     if not base.is_dir():
         raise FileNotFoundError(f"Corpus introuvable : {base}")
 
+    lecteurs = {".md": _texte_markdown, ".html": _texte_html, ".htm": _texte_html}
+
+    # Un document = un nom de fichier sans extension. Si arbois.html et arbois.pdf
+    # coexistent, on garde le premier format listé dans EXTENSIONS.
+    par_document: dict[str, Path] = {}
+    for extension in EXTENSIONS:
+        for chemin in base.glob(f"*{extension}"):
+            par_document.setdefault(chemin.stem, chemin)
+
     fiches = []
-    for chemin in sorted(base.glob("*.md")):
-        texte = chemin.read_text(encoding="utf-8")
-        premiere = texte.lstrip().splitlines()[0] if texte.strip() else ""
-        titre = premiere.lstrip("# ").strip() or chemin.stem
+    for stem in sorted(par_document):
+        chemin = par_document[stem]
+        titre, texte = lecteurs[chemin.suffix.lower()](chemin)
         fiches.append({"fichier": chemin.name, "titre": titre, "texte": texte})
 
     if not fiches:
-        raise FileNotFoundError(f"Aucune fiche .md dans {base}")
+        attendues = ", ".join(EXTENSIONS)
+        raise FileNotFoundError(f"Aucun document ({attendues}) dans {base}")
     return fiches
 
 
@@ -103,73 +156,138 @@ def charger_corpus(dossier: Path | str | None = None) -> list[dict]:
 # Répondables avec un seul passage du corpus : le RAG vectoriel y excelle.
 QUESTIONS_SIMPLES: list[dict] = [
     {
-        "question": "Quel est le volume d'un clavelin ?",
-        "ref": "62 centilitres.",
+        "question": "Quel est le rendement autorisé en AOC Château-Chalon ?",
+        "ref": (
+            "30 hectolitres par hectare. Le rendement butoir est fixé à "
+            "50 hectolitres à l'hectare."
+        ),
     },
     {
-        "question": "Quel cépage entre dans la cuvée Ploussard des Curons ?",
-        "ref": "Le poulsard, écrit et prononcé ploussard à Pupillin.",
+        "question": (
+            "Combien de temps une eau-de-vie « Marc du Jura » destinée à la "
+            "consommation doit-elle vieillir sous bois, et dans quels contenants ?"
+        ),
+        "ref": (
+            "Au moins 24 mois sous bois, dans des logements d'une capacité "
+            "unitaire maximale de 600 litres, sans interruption."
+        ),
     },
     {
-        "question": "Combien de temps un vin de l'appellation Château-Chalon doit-il vieillir ?",
-        "ref": "Au moins six ans et trois mois, dont soixante mois sous voile.",
+        "question": (
+            "Quelle bouteille est réservée au conditionnement des vins de "
+            "l'appellation Château-Chalon, et quelle est sa contenance ?"
+        ),
+        "ref": (
+            "La bouteille dite « Clavelin », ou « bouteille à vin jaune », d'une "
+            "contenance de 62 centilitres environ. Elle porte le cachet moulé au nom "
+            "de l'appellation et lui est exclusivement réservée."
+        ),
     },
     {
-        "question": "Qui dirige le Domaine de la Combe Grise ?",
-        "ref": "Louise Perrenot, qui a créé le domaine en 2009.",
+        "question": "Sur quelles communes s'étend l'aire géographique de l'AOC L'Étoile ?",
+        "ref": (
+            "Quatre communes du Jura : L'Étoile, Plainoiseau, Quintigny et Saint-Didier. "
+            "La récolte, la vinification, l'élaboration et l'élevage y sont assurés."
+        ),
     },
 ]
 
-# Deux sauts de relation, ou une agrégation sur tout le corpus.
-# Aucun chunk ne contient la réponse : le RAG vectoriel échoue par construction.
+#: Questions dont la réponse n'est écrite dans **aucun** document pris isolément.
+#: Elles exigent de croiser plusieurs cahiers des charges, ou d'agréger sur les sept.
+#: C'est le pivot du notebook : le RAG vectoriel échoue ici par construction, quel que
+#: soit le réglage du retrieval, et c'est le GraphRAG qui les résout.
 QUESTIONS_MULTIHOP: list[dict] = [
     {
         "question": (
-            "Quels cépages sont travaillés par les domaines dont le siège est à "
-            "Château-Chalon ?"
+            "Combien d'appellations du corpus peuvent produire un « vin jaune », "
+            "lesquelles, et laquelle y est entièrement consacrée ?"
         ),
         "ref": (
-            "Savagnin, chardonnay et pinot noir. Le Domaine des Clavelins travaille le "
-            "savagnin ; le Domaine de la Roche Percée travaille le savagnin (Sous Voile) "
-            "ainsi que le chardonnay et le pinot noir (Bulles de Voiteur)."
+            "Quatre. Arbois, Côtes du Jura et L'Étoile peuvent compléter leur nom par "
+            "la mention facultative « vin jaune » ; Château-Chalon est réservée aux "
+            "vins blancs tranquilles dits « vins jaunes » et n'a donc aucune mention "
+            "complémentaire à ajouter. Le Crémant du Jura, le Macvin du Jura et le "
+            "Marc du Jura n'en produisent pas. Les quatre imposent la même règle : "
+            "élevage en fût de chêne sans ouillage jusqu'au 15 décembre de la 6e année "
+            "suivant la récolte, dont 60 mois au moins sous voile."
         ),
-        "pourquoi": "2 sauts : commune -> domaines -> cuvées -> cépages, réparti sur 3 fiches.",
-    },
-    {
-        "question": "Quel vigneron dirige un domaine qui produit à la fois un vin jaune et un crémant ?",
-        "ref": (
-            "Salomé Vuillod, du Domaine de la Roche Percée : Sous Voile est un vin jaune, "
-            "Bulles de Voiteur est un crémant."
+        "pourquoi": (
+            "Agrégation sur les sept cahiers des charges. Le piège : marc-du-jura.html "
+            "est le seul document qui contienne à la fois « vin jaune » et la liste des "
+            "six autres appellations, mais c'est pour en INTERDIRE la mention sur "
+            "l'étiquette. C'est donc lui que le retrieval remonte, et il ne permet pas "
+            "de répondre."
         ),
-        "pourquoi": "Intersection de deux ensembles décrits dans deux fiches distinctes.",
     },
     {
         "question": (
-            "Combien de cuvées du corpus utilisent le savagnin, et dans quelles "
-            "appellations ?"
+            "Parmi les sept cahiers des charges, quelle appellation impose le "
+            "rendement le plus bas et laquelle le plus élevé ?"
         ),
         "ref": (
-            "Quatre cuvées : Clavelin d'Automne et Sous Voile en Château-Chalon, "
-            "Les Marnes Bleues en Côtes du Jura, Étoile Filante en L'Étoile. "
-            "Soit trois appellations."
+            "Le plus bas est celui de Château-Chalon : 30 hectolitres par hectare "
+            "(butoir 50). Le plus élevé est celui du Crémant du Jura : 78 hectolitres "
+            "par hectare pour les parcelles dont l'écartement moyen entre rangs est "
+            "inférieur ou égal à 1,6 mètre. Entre les deux, Arbois, Côtes du Jura, "
+            "L'Étoile et Macvin du Jura sont à 60 hl/ha en blanc et 55 hl/ha en rouge "
+            "et rosé. Le Marc du Jura ne fixe pas de rendement à l'hectare mais un "
+            "rendement en alcool."
         ),
-        "pourquoi": "Agrégation : il faut avoir vu les 7 fiches pour compter juste.",
+        "pourquoi": (
+            "Comparaison chiffrée sur six documents : chaque article VIII ne donne que "
+            "le rendement de son appellation, aucun ne cite celui d'une autre. Il faut "
+            "les lire tous puis les ordonner."
+        ),
+    },
+    {
+        "question": (
+            "Quel cépage est autorisé par les sept appellations du corpus, et lequel "
+            "l'est par six d'entre elles seulement ? Quelle appellation fait exception ?"
+        ),
+        "ref": (
+            "Le savagnin est autorisé par les sept appellations. Le chardonnay l'est "
+            "par six : Château-Chalon fait exception, ses vins étant issus "
+            "exclusivement du seul cépage savagnin."
+        ),
+        "pourquoi": (
+            "Agrégation sur les sept documents, doublée d'une détection d'ABSENCE. "
+            "Répondre suppose d'avoir lu les sept articles V et remarqué que l'un "
+            "d'eux ne mentionne pas le chardonnay. Un retrieval qui rate un seul "
+            "document donne une réponse fausse sans aucun signal."
+        ),
     },
 ]
 
-# Hors du corpus : la bonne réponse est de refuser.
+#: Questions plausibles dans le domaine mais dont la réponse n'est nulle part.
+#: Un cahier des charges ne fixe ni prix, ni hiérarchie de millésimes, ni accords
+#: mets-vins. La bonne réponse du système est le refus.
 QUESTIONS_HORS_SCOPE: list[dict] = [
     {
-        "question": "Quel est le prix d'une bouteille de Bulles de Voiteur ?",
-        "ref": "Information absente du corpus : le système doit refuser de répondre.",
+        "question": "Quel est le prix de vente d'un clavelin de Château-Chalon ?",
+        "ref": (
+            "Information absente du corpus : le système doit refuser de répondre. "
+            "Un cahier des charges de l'INAO ne fixe aucun prix ni tarif."
+        ),
     },
     {
-        "question": "Quel est le rendement maximal autorisé en AOC Arbois ?",
-        "ref": "Information absente du corpus : le système doit refuser de répondre.",
+        "question": "Quels millésimes de vin jaune du Jura sont considérés comme les plus grands ?",
+        "ref": (
+            "Information absente du corpus : le système doit refuser de répondre. "
+            "Les cahiers des charges ne hiérarchisent pas les millésimes ; ils "
+            "n'imposent l'indication du millésime que sur les étiquettes des « vins de "
+            "paille »."
+        ),
     },
     {
-        "question": "Quel temps fera-t-il demain à Arbois ?",
-        "ref": "Hors sujet : le système doit refuser de répondre.",
+        "question": (
+            "Avec quels plats accompagner un Macvin du Jura, et à quelle température "
+            "le servir ?"
+        ),
+        "ref": (
+            "Information absente du corpus : le système doit refuser de répondre. "
+            "Les cahiers des charges décrivent les caractéristiques organoleptiques du "
+            "produit mais ne donnent ni accord mets-vins ni température de service."
+        ),
     },
 ]
 
@@ -182,71 +300,116 @@ QUESTIONS_HORS_SCOPE: list[dict] = [
 # du Domaine de la Roche Percée (Château-Chalon) et la parcelle de sa cuvée
 # effervescente (Voiteur) ne sont pas dans la même commune.
 RELATIONS: tuple[str, ...] = (
-    "DIRIGE",     # Vigneron  -> Domaine
-    "SIEGE_A",    # Domaine   -> Commune  (siège social et caves)
-    "PRODUIT",    # Domaine   -> Cuvee
-    "VINIFIE_A",  # Cuvee     -> Commune  (commune de la parcelle)
-    "ISSU_DE",    # Cuvee     -> Cepage
-    "RELEVE_DE",  # Cuvee     -> Appellation
-    "EST_UN",     # Cuvee     -> TypeDeVin
+    "PRODUIT_TYPE",   # AOC              -> TypeDeVin  (blanc tranquille, mousseux, eau-de-vie...)
+    "ADMET_MENTION",  # AOC              -> Mention    (vin jaune, vin de paille, vieux, tres vieux)
+    "AUTORISE",       # AOC              -> Cepage     (cépages principaux uniquement)
+    "RECOLTEE_SUR",   # AOC              -> Commune    (seulement les aires de <= 5 communes)
+    "RENDEMENT_MAX",  # AOC              -> Valeur     (rendement de base, en hl/ha)
+    "ELEVAGE_MIN",    # AOC ou Mention   -> Duree      (durée minimale réglementaire)
 )
 
+#: Graphe « gold » extrait à la main des sept cahiers des charges de ``corpus_vins/``.
+#: Chaque triplet est littéralement vérifiable dans le texte source ; c'est la vérité
+#: terrain contre laquelle le notebook mesure la précision et le rappel de l'extraction
+#: automatique. Un graphe de référence faux invaliderait toute la mesure.
+#:
+#: Conventions retenues, et elles ne sont pas neutres :
+#: - seuls les **cépages principaux** figurent ici. Les variétés accessoires et celles
+#:   soumises à convention INAO (aligoté, gringet, sacy...) sont ignorées.
+#: - ``RECOLTEE_SUR`` n'est émis que pour Château-Chalon et L'Étoile, dont l'aire de
+#:   récolte tient en quatre communes. Arbois en compte douze, les autres davantage.
+#: - Château-Chalon ``ADMET_MENTION`` « vin jaune » : son article III dit que l'appellation
+#:   est réservée aux « vins blancs tranquilles dits vins jaunes ». Son article II précise
+#:   pourtant « pas de disposition particulière » sur les mentions : les deux lectures se
+#:   défendent, on retient la plus littérale.
+#: - les couleurs ne sont émises que pour les AOC de vins tranquilles : parler de
+#:   « rouge » pour un vin de liqueur ou une eau-de-vie induirait en erreur.
 TRIPLETS_REFERENCE: list[tuple[str, str, str]] = [
-    # ── Qui dirige quoi ──────────────────────────────────────────────────────
-    ("Adèle Renaud",           "DIRIGE",    "Domaine des Clavelins"),
-    ("Salomé Vuillod",         "DIRIGE",    "Domaine de la Roche Percée"),
-    ("Marc Vasseur",           "DIRIGE",    "Domaine du Bief Rouge"),
-    ("Louise Perrenot",        "DIRIGE",    "Domaine de la Combe Grise"),
-    ("Jean-Baptiste Chapuis",  "DIRIGE",    "Domaine Chapuis"),
-    # ── Où sont les sièges ───────────────────────────────────────────────────
-    ("Domaine des Clavelins",      "SIEGE_A", "Château-Chalon"),
-    ("Domaine de la Roche Percée", "SIEGE_A", "Château-Chalon"),
-    ("Domaine du Bief Rouge",      "SIEGE_A", "Pupillin"),
-    ("Domaine de la Combe Grise",  "SIEGE_A", "L'Étoile"),
-    ("Domaine Chapuis",            "SIEGE_A", "Montigny-lès-Arsures"),
-    # ── Qui produit quelle cuvée ─────────────────────────────────────────────
-    ("Domaine des Clavelins",      "PRODUIT", "Clavelin d'Automne"),
-    ("Domaine de la Roche Percée", "PRODUIT", "Sous Voile"),
-    ("Domaine de la Roche Percée", "PRODUIT", "Bulles de Voiteur"),
-    ("Domaine du Bief Rouge",      "PRODUIT", "Les Marnes Bleues"),
-    ("Domaine du Bief Rouge",      "PRODUIT", "Ploussard des Curons"),
-    ("Domaine de la Combe Grise",  "PRODUIT", "Étoile Filante"),
-    ("Domaine Chapuis",            "PRODUIT", "Rosée des Corvées"),
-    # ── Où est la parcelle de chaque cuvée ───────────────────────────────────
-    ("Clavelin d'Automne",   "VINIFIE_A", "Château-Chalon"),
-    ("Sous Voile",           "VINIFIE_A", "Château-Chalon"),
-    ("Les Marnes Bleues",    "VINIFIE_A", "Pupillin"),
-    ("Ploussard des Curons", "VINIFIE_A", "Pupillin"),
-    ("Étoile Filante",       "VINIFIE_A", "L'Étoile"),
-    ("Bulles de Voiteur",    "VINIFIE_A", "Voiteur"),
-    ("Rosée des Corvées",    "VINIFIE_A", "Montigny-lès-Arsures"),
-    # ── Quel cépage dans quelle cuvée ────────────────────────────────────────
-    ("Clavelin d'Automne",   "ISSU_DE", "savagnin"),
-    ("Sous Voile",           "ISSU_DE", "savagnin"),
-    ("Les Marnes Bleues",    "ISSU_DE", "savagnin"),
-    ("Ploussard des Curons", "ISSU_DE", "poulsard"),
-    ("Étoile Filante",       "ISSU_DE", "chardonnay"),
-    ("Étoile Filante",       "ISSU_DE", "savagnin"),
-    ("Bulles de Voiteur",    "ISSU_DE", "chardonnay"),
-    ("Bulles de Voiteur",    "ISSU_DE", "pinot noir"),
-    ("Rosée des Corvées",    "ISSU_DE", "poulsard"),
-    ("Rosée des Corvées",    "ISSU_DE", "trousseau"),
-    # ── Quelle appellation ───────────────────────────────────────────────────
-    ("Clavelin d'Automne",   "RELEVE_DE", "Château-Chalon"),
-    ("Sous Voile",           "RELEVE_DE", "Château-Chalon"),
-    ("Les Marnes Bleues",    "RELEVE_DE", "Côtes du Jura"),
-    ("Ploussard des Curons", "RELEVE_DE", "Arbois"),
-    ("Étoile Filante",       "RELEVE_DE", "L'Étoile"),
-    ("Bulles de Voiteur",    "RELEVE_DE", "Crémant du Jura"),
-    ("Rosée des Corvées",    "RELEVE_DE", "Crémant du Jura"),
-    # ── Quel type de vin ─────────────────────────────────────────────────────
-    ("Clavelin d'Automne",   "EST_UN", "vin jaune"),
-    ("Sous Voile",           "EST_UN", "vin jaune"),
-    ("Les Marnes Bleues",    "EST_UN", "blanc ouillé"),
-    ("Ploussard des Curons", "EST_UN", "rouge"),
-    ("Étoile Filante",       "EST_UN", "blanc sec"),
-    ("Bulles de Voiteur",    "EST_UN", "crémant"),
-    ("Rosée des Corvées",    "EST_UN", "crémant"),
+    # ── Arbois ────────────────────────────────────────────────── arbois.html
+    ("Arbois",          "ADMET_MENTION", "vin de paille"),
+    ("Arbois",          "ADMET_MENTION", "vin jaune"),
+    ("Arbois",          "AUTORISE",      "chardonnay"),
+    ("Arbois",          "AUTORISE",      "pinot noir"),
+    ("Arbois",          "AUTORISE",      "poulsard"),
+    ("Arbois",          "AUTORISE",      "savagnin"),
+    ("Arbois",          "AUTORISE",      "trousseau"),
+    ("Arbois",          "PRODUIT_TYPE",  "blanc tranquille"),
+    ("Arbois",          "PRODUIT_TYPE",  "rosé"),
+    ("Arbois",          "PRODUIT_TYPE",  "rouge"),
+    ("Arbois",          "RENDEMENT_MAX", "55 hl/ha"),
+    ("Arbois",          "RENDEMENT_MAX", "60 hl/ha"),
+    # ── Château-Chalon ──────────────────────────────────── chateau-chalon.html
+    ("Château-Chalon",  "ADMET_MENTION", "vin jaune"),
+    ("Château-Chalon",  "AUTORISE",      "savagnin"),
+    ("Château-Chalon",  "ELEVAGE_MIN",   "60 mois sous voile"),
+    ("Château-Chalon",  "PRODUIT_TYPE",  "blanc tranquille"),
+    ("Château-Chalon",  "RECOLTEE_SUR",  "Château-Chalon"),
+    ("Château-Chalon",  "RECOLTEE_SUR",  "Domblans"),
+    ("Château-Chalon",  "RECOLTEE_SUR",  "Menetru-le-Vignoble"),
+    ("Château-Chalon",  "RECOLTEE_SUR",  "Nevy-sur-Seille"),
+    ("Château-Chalon",  "RENDEMENT_MAX", "30 hl/ha"),
+    # ── Côtes du Jura ────────────────────────────────────── cotes-du-jura.html
+    ("Côtes du Jura",   "ADMET_MENTION", "vin de paille"),
+    ("Côtes du Jura",   "ADMET_MENTION", "vin jaune"),
+    ("Côtes du Jura",   "AUTORISE",      "chardonnay"),
+    ("Côtes du Jura",   "AUTORISE",      "pinot noir"),
+    ("Côtes du Jura",   "AUTORISE",      "poulsard"),
+    ("Côtes du Jura",   "AUTORISE",      "savagnin"),
+    ("Côtes du Jura",   "AUTORISE",      "trousseau"),
+    ("Côtes du Jura",   "PRODUIT_TYPE",  "blanc tranquille"),
+    ("Côtes du Jura",   "PRODUIT_TYPE",  "rosé"),
+    ("Côtes du Jura",   "PRODUIT_TYPE",  "rouge"),
+    ("Côtes du Jura",   "RENDEMENT_MAX", "55 hl/ha"),
+    ("Côtes du Jura",   "RENDEMENT_MAX", "60 hl/ha"),
+    # ── Crémant du Jura ──────────────────────────────────── cremant-du-jura.html
+    ("Crémant du Jura", "AUTORISE",      "chardonnay"),
+    ("Crémant du Jura", "AUTORISE",      "pinot gris"),
+    ("Crémant du Jura", "AUTORISE",      "pinot noir"),
+    ("Crémant du Jura", "AUTORISE",      "poulsard"),
+    ("Crémant du Jura", "AUTORISE",      "savagnin"),
+    ("Crémant du Jura", "AUTORISE",      "trousseau"),
+    ("Crémant du Jura", "ELEVAGE_MIN",   "12 mois à compter du tirage"),
+    ("Crémant du Jura", "PRODUIT_TYPE",  "mousseux"),
+    ("Crémant du Jura", "RENDEMENT_MAX", "78 hl/ha"),
+    # ── L'Étoile ─────────────────────────────────────────────── letoile.html
+    ("L'Étoile",        "ADMET_MENTION", "vin de paille"),
+    ("L'Étoile",        "ADMET_MENTION", "vin jaune"),
+    ("L'Étoile",        "AUTORISE",      "chardonnay"),
+    ("L'Étoile",        "AUTORISE",      "savagnin"),
+    ("L'Étoile",        "PRODUIT_TYPE",  "blanc tranquille"),
+    ("L'Étoile",        "RECOLTEE_SUR",  "L'Étoile"),
+    ("L'Étoile",        "RECOLTEE_SUR",  "Plainoiseau"),
+    ("L'Étoile",        "RECOLTEE_SUR",  "Quintigny"),
+    ("L'Étoile",        "RECOLTEE_SUR",  "Saint-Didier"),
+    ("L'Étoile",        "RENDEMENT_MAX", "60 hl/ha"),
+    # ── Macvin du Jura ───────────────────────────────────── macvin-du-jura.html
+    ("Macvin du Jura",  "AUTORISE",      "chardonnay"),
+    ("Macvin du Jura",  "AUTORISE",      "pinot noir"),
+    ("Macvin du Jura",  "AUTORISE",      "poulsard"),
+    ("Macvin du Jura",  "AUTORISE",      "savagnin"),
+    ("Macvin du Jura",  "AUTORISE",      "trousseau"),
+    ("Macvin du Jura",  "ELEVAGE_MIN",   "10 mois sous bois"),
+    ("Macvin du Jura",  "PRODUIT_TYPE",  "vin de liqueur"),
+    ("Macvin du Jura",  "RENDEMENT_MAX", "55 hl/ha"),
+    ("Macvin du Jura",  "RENDEMENT_MAX", "60 hl/ha"),
+    # ── Marc du Jura ───────────────────────────────────────── marc-du-jura.html
+    # Pas de RENDEMENT_MAX : son rendement est un rendement de distillation
+    # (litres d'alcool pur pour 100 kg de marcs), inexprimable en hl/ha.
+    ("Marc du Jura",    "ADMET_MENTION", "très vieux"),
+    ("Marc du Jura",    "ADMET_MENTION", "vieux"),
+    ("Marc du Jura",    "AUTORISE",      "chardonnay"),
+    ("Marc du Jura",    "AUTORISE",      "pinot gris"),
+    ("Marc du Jura",    "AUTORISE",      "pinot noir"),
+    ("Marc du Jura",    "AUTORISE",      "poulsard"),
+    ("Marc du Jura",    "AUTORISE",      "savagnin"),
+    ("Marc du Jura",    "AUTORISE",      "trousseau"),
+    ("Marc du Jura",    "ELEVAGE_MIN",   "24 mois sous bois"),
+    ("Marc du Jura",    "PRODUIT_TYPE",  "eau-de-vie"),
+    # ── Règles portant sur la mention, pas sur l'appellation ───────────────
+    ("très vieux",      "ELEVAGE_MIN",   "8 ans sous bois"),
+    ("vieux",           "ELEVAGE_MIN",   "5 ans sous bois"),
+    ("vin de paille",   "ELEVAGE_MIN",   "18 mois sous bois"),
+    ("vin jaune",       "ELEVAGE_MIN",   "60 mois sous voile"),
 ]
 
 

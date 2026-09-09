@@ -39,6 +39,7 @@ dependencies = [
     "langchain-chroma>=1.0",
     "langchain-qdrant>=1.0",
     "rank-bm25>=0.2",
+    "beautifulsoup4>=4.12",   # J3 T2 : lecture des cahiers des charges HTML de l'INAO
     "datasets>=4.0",   # J3 T3 : Dataset.from_list, seule dépendance FT exécutée en salle
     "numpy>=2.0",
     # ── Utilitaires ──────────────────────────────────────────────────────────────
