@@ -39,6 +39,7 @@ dependencies = [
     "langchain-chroma>=1.0",
     "langchain-qdrant>=1.0",
     "rank-bm25>=0.2",
+    "datasets>=4.0",   # J3 T3 : Dataset.from_list, seule dépendance FT exécutée en salle
     "numpy>=2.0",
     # ── Utilitaires ──────────────────────────────────────────────────────────────
     "python-dotenv",
@@ -80,6 +81,16 @@ reportUnusedExpression = "none"
 dev = [
     "nbdime>=4.0.2",
     "ruff>=0.6.1",
+]
+# J3 T3 : la partie 3 du notebook Fine-tuning. Non installé par défaut (~2,5 Go).
+# La pile entière est épinglée ensemble : épingler trl seul ne sert à rien, il
+# déclare transformers>=… sans borne haute et laisse le résolveur prendre la dernière.
+finetuning = [
+    "torch>=2.6",
+    "transformers>=4.56",   # dtype= remplace torch_dtype= à partir de cette version
+    "trl>=0.20",            # max_seq_length supprimé de SFTConfig ici : le notebook utilise max_length
+    "peft>=0.15",
+    "accelerate>=1.4",
 ]
 
 [tool.ruff]
