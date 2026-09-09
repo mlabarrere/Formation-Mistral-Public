@@ -1,7 +1,7 @@
-"""Module partagé T4 : vins du Jura (RAG et GraphRAG).
+"""Module partagé T2 : vins du Jura (RAG et GraphRAG).
 
 **But : fournir le corpus, les jeux de questions et les briques de calcul communes au
-notebook NB_T4**, sans aucune dépendance LangChain ni Mistral. Le décor est un petit
+notebook NB_T2a**, sans aucune dépendance LangChain ni Mistral. Le décor est un petit
 vignoble jurassien de sept cuvées, choisi parce qu'un corpus viticole est naturellement
 *relationnel* : un domaine est dirigé par une personne, situé dans une commune, et
 produit des cuvées issues de cépages relevant d'appellations.

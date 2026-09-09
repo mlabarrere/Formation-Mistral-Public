@@ -5,7 +5,8 @@ de production : workflows contrôlés par l'humain (dont un agent email multi-é
 recherche augmentée par récupération (RAG) et fine-tuning des modèles (niveau théorique).
 
 🎯 **Public** : participants ayant suivi J1 et J2 (ou équivalent), à l'aise avec les
-bases de LangChain/LangGraph et Mistral. Chaque thème dure **60 à 90 minutes**.
+bases de LangChain/LangGraph et Mistral. Chaque thème dure **60 à 90 minutes**,
+à l'exception de T2 (RAG & GraphRAG) qui demande **~120 minutes**.
 
 ---
 
@@ -14,7 +15,7 @@ bases de LangChain/LangGraph et Mistral. Chaque thème dure **60 à 90 minutes**
 | Thème | Dossier | Question centrale |
 |---|---|---|
 | T1 — Workflows & HITL | `T1_Workflows_HITL/` | Comment concevoir un graphe LangGraph fiable avec interruption humaine ? |
-| T2 — RAG avec LangChain | `T2_RAG/` | Comment ancrer les réponses du LLM dans des documents réels ? |
+| T2 — RAG & GraphRAG | `T2_RAG/` | Comment ancrer les réponses du LLM dans des documents réels, et que faire quand la réponse n'est dans aucun document ? |
 | T3 — Fine-tuning (théorie) | `T3_FineTuning/` | Quand et comment adapter un modèle à son domaine ? |
 
 ---
@@ -26,15 +27,15 @@ J3_Avancé/
 ├── T1_Workflows_HITL/      ← graphe d'état, interrupt, checkpointer durable, agent email
 │   ├── atelier/
 │   └── NB_T1a_workflows_hitl.ipynb
-├── T2_RAG/                 ← ingestion, retrieval, query translation, évaluation
-│   ├── atelier/
-│   ├── data/               ← documents de démonstration
-│   └── NB_T2a_rag_langchain.ipynb
+├── T2_RAG/                 ← chunking, Chroma vs Qdrant, hybride BM25+RRF, GraphRAG NetworkX
+│   ├── corpus_vins/        ← 7 fiches markdown : le corpus indexé
+│   ├── _archive/           ← ancienne version LangChain seule, conservée pour référence
+│   ├── vins_jura.py        ← corpus, jeux de questions, graphe de référence
+│   └── NB_T2a_rag_graphrag.ipynb
 ├── T3_FineTuning/          ← panorama théorique, LoRA, SFT, RLHF
 │   ├── atelier/
 │   └── NB_T3a_finetuning_theorie.ipynb
 ├── assets/                 ← images affichées dans les notebooks
-├── data/                   ← données partagées entre thèmes
 └── util/                   ← utilitaires communs (env, loaders…)
 ```
 

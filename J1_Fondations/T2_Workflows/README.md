@@ -62,7 +62,7 @@ avec des encadrés `> **Piège.**` / `> **Note honnête.**` et trois visualisati
 
 ## Dépendances
 `langgraph==0.6.11`, `langchain-mistralai==0.2.12`, `mistralai-workflows==3.11.0` (cf. [`requirements.txt`](../../requirements.txt) à la racine).
-⚠️ Lignes **pré-1.0** obligatoires (les 1.x exigent `langchain-core>=1.4.7` → cassent `ragas`/T4).
+⚠️ Lignes **pré-1.0** obligatoires (les 1.x exigent `langchain-core>=1.4.7` → cassent `ragas`/J3-T2).
 Piège serveur dédié : `ChatMistralAI(..., endpoint=MISTRAL_SERVER_URL.rstrip("/") + "/v1")`.
 
 ## Exécuter
