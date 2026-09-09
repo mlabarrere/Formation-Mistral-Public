@@ -51,7 +51,7 @@ C'est l'argument central du réflexe « gardez les deux ».
 | `NB_T2a_rag_graphrag.ipynb` | Le notebook de cours |
 | `vins_jura.py` | Module partagé : corpus, 3 familles de questions, graphe de référence, `rrf`, `cosinus` |
 | `corpus_vins/` | 7 fiches markdown : le corpus indexé |
-| `_archive/` | Version précédente du thème (RAG LangChain seul) — voir `_archive/NOTE.md` |
+| `_archive/` | Version précédente du thème (RAG LangChain seul), voir `_archive/NOTE.md` |
 
 ### `vins_jura.py` : API publique
 
